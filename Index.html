@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Time Turner Experience</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      background: #000;
+    }
+
+    #clock {
+      position: fixed;
+      top: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      font-size: 4vw;
+      text-shadow: 0 0 10px #00ff00;
+      z-index: 100;
+    }
+
+    #instructions {
+      position: fixed;
+      bottom: 5vh;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      opacity: 0.8;
+      font-size: 3vw;
+    }
+
+    .arrow {
+      animation: swipe 2s infinite;
+      font-size: 6vw;
+    }
+
+    @keyframes swipe {
+      0% { transform: translateX(-50px); opacity: 0; }
+      50% { transform: translateX(50px); opacity: 1; }
+      100% { transform: translateX(150px); opacity: 0; }
+    }
+
+    #message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 5vw;
+      text-align: center;
+      opacity: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      border-right: 2px solid white;
+      font-family: monospace;
+      text-shadow: 0 0 10px white;
+    }
+
+    canvas {
+      touch-action: none;
+    }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, #000000 60%, #1a1a1a);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .ring {
+      border: 4px solid transparent;
+      border-top-color: #00ffcc;
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      margin: 10px;
+      animation: spin 1.5s linear infinite;
+      box-shadow: 0 0 20px #00ffcc;
+    }
+
+    .ring2 {
+      animation-delay: 0.2s;
+      width: 60px;
+      height: 60px;
+      border-top-color: #ff00ff;
+    }
+
+    .ring3 {
+      animation-delay: 0.4s;
+      width: 40px;
+      height: 40px;
+      border-top-color: #ffff00;
+    }
+
+    .spinner-container p {
+      color: white;
+      font-family: 'Courier New', monospace;
+      margin-top: 20px;
+      font-size: 1.5rem;
+      animation: pulseText 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulseText {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-overlay">
+    <div class="spinner-container">
+      <div class="ring ring1"></div>
+      <div class="ring ring2"></div>
+      <div class="ring ring3"></div>
+      <p>Turning Time...</p>
+    </div>
+  </div>
+
+  <div id="clock">26 May 2025 12:00:00 AM</div>
+  <div id="instructions">
+    <div class="arrow">→</div>
+    <p>Swipe to rotate Earth</p>
+  </div>
+  <div id="message" style="opacity: 0;"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    let scene, camera, renderer, earth, sun, moon;
+    let startTime = new Date(2025, 4, 26).getTime();
+    let currentTime = startTime;
+    let isDragging = false;
+    let previousPosition = { x: 0 };
+    let explosionStarted = false;
+
+    const manager = new THREE.LoadingManager();
+    manager.onLoad = function () {
+      document.getElementById('loading-overlay').style.display = 'none';
+    };
+
+    const loader = new THREE.TextureLoader(manager);
+
+    init();
+    animate();
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x888888);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      directionalLight.position.set(5, 10, 5);
+      scene.add(directionalLight);
+
+      createSun();
+      createEarth();
+      createMoon();
+
+      camera.position.set(0, 6, 18);
+      camera.lookAt(0, 0, 0);
+
+      document.addEventListener('mousedown', startDrag);
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', endDrag);
+      document.addEventListener('touchstart', startDrag);
+      document.addEventListener('touchmove', drag);
+      document.addEventListener('touchend', endDrag);
+    }
+
+    function createSun() {
+      const texture = loader.load('sun.jpg');
+      const geometry = new THREE.SphereGeometry(6, 64, 64);
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        color: 0xffffcc
+      });
+      sun = new THREE.Mesh(geometry, material);
+      sun.position.set(0, 0, -10);
+      scene.add(sun);
+    }
+
+    function createEarth() {
+      const texture = loader.load('earth.jpg');
+      const geometry = new THREE.SphereGeometry(1.5, 64, 64);
+      const material = new THREE.MeshPhongMaterial({ map: texture });
+      earth = new THREE.Mesh(geometry, material);
+      earth.position.set(0, 0, 0);
+      scene.add(earth);
+    }
+
+    function createMoon() {
+      const texture = loader.load('moon.jpg');
+      const geometry = new THREE.SphereGeometry(0.4, 64, 64);
+      const material = new THREE.MeshPhongMaterial({ map: texture });
+      moon = new THREE.Mesh(geometry, material);
+      moon.position.set(3, 0, 0);
+      scene.add(moon);
+    }
+
+    function startDrag(e) {
+      isDragging = true;
+      previousPosition.x = e.clientX || e.touches[0].clientX;
+    }
+
+    function drag(e) {
+      if (!isDragging || explosionStarted) return;
+      const clientX = e.clientX || e.touches[0].clientX;
+      const delta = clientX - previousPosition.x;
+
+      if (delta <= 0) return;
+
+      previousPosition.x = clientX;
+      earth.rotation.y += delta * 0.01;
+
+      const angle = earth.rotation.y;
+      moon.position.x = earth.position.x + Math.cos(angle) * 3;
+      moon.position.z = earth.position.z + Math.sin(angle) * 3;
+
+      updateTime(delta);
+    }
+
+    function endDrag() {
+      isDragging = false;
+    }
+
+    function updateTime(delta) {
+      const timeDelta = (delta / window.innerWidth) * 86400000;
+      currentTime += timeDelta;
+
+      const maxTime = new Date(2025, 4, 27).getTime();
+      if (currentTime >= maxTime) {
+        currentTime = maxTime;
+        if (navigator.vibrate) navigator.vibrate(200);
+        triggerExplosion();
+      }
+
+      updateClock();
+    }
+
+    function updateClock() {
+      const clock = document.getElementById('clock');
+      if (!clock) return;
+
+      const date = new Date(currentTime);
+      const options = {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      };
+      clock.textContent = date.toLocaleString('en-US', options).replace(',', '');
+    }
+
+    function triggerExplosion() {
+      if (explosionStarted) return;
+      explosionStarted = true;
+
+      document.body.innerHTML = '';
+      document.body.style.background = '#000';
+
+      const messageElement = document.createElement('div');
+      messageElement.id = 'message';
+      Object.assign(messageElement.style, {
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        color: 'white',
+        fontSize: '5vw',
+        textAlign: 'center',
+        opacity: '1',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        borderRight: '2px solid white',
+        fontFamily: 'monospace',
+        textShadow: '0 0 10px white'
+      });
+
+      document.body.appendChild(messageElement);
+
+      const message = "It's 27th May today...\nToday is a special day.";
+      let i = 0;
+
+      function typeWriter() {
+        if (i < message.length) {
+          const char = message.charAt(i);
+          messageElement.innerHTML += (char === '\n') ? '<br>' : char;
+          i++;
+          setTimeout(typeWriter, 50);
+        } else {
+          messageElement.style.borderRight = 'none';
+        }
+      }
+
+      typeWriter();
+
+      setTimeout(() => {
+        window.location.href = 'Scene2.html';
+      }, 5000);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
