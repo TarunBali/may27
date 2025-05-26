@@ -142,11 +142,11 @@
       <div class="ring ring1"></div>
       <div class="ring ring2"></div>
       <div class="ring ring3"></div>
-      <p>Turning Time...</p>
+      <p>Reversing Time...</p>
     </div>
   </div>
 
-  <div id="clock">26 May 2025 12:00:00 AM</div>
+  <div id="clock">26 May 2025 12:00 AM</div>
   <div id="instructions">
     <div class="arrow">→</div>
     <p>Swipe to rotate Earth</p>
@@ -281,8 +281,7 @@
         day: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        minute: '2-digit'
       };
       clock.textContent = date.toLocaleString('en-US', options).replace(',', '');
     }
@@ -314,7 +313,7 @@
 
       document.body.appendChild(messageElement);
 
-      const message = "It's 27th May today...\nToday is a special day.";
+      const message = "It's 27th May today...\nToday's a very special day.";
       let i = 0;
 
       function typeWriter() {
